@@ -1,155 +1,167 @@
-﻿using System.Runtime.InteropServices;
-using SolidWorks;
+﻿// 引入必要的命名空间
+
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using System.Diagnostics;
+using SolidWorks; // 包含我们的断言扩展方法
 
-// --- 初始化部分 ---
-// 连接到已运行的 SOLIDWORKS 实例
-SldWorks swApp = SolidWorksConnector.GetSldWorksApp();
+// --- 配置区域 ---
+const string TargetFilePath = @"D:\User\Desktop\Project\SolidWorksProject\xhzhuji VVFWCRYOAXIS.stp.temp.SLDPRT";
+const int ComponentsToKeep = 400; // 要保留的零部件/实体的数量
 
-Console.WriteLine("日志：已成功连接到 SOLIDWORKS！");
-Console.WriteLine($"当前 SOLIDWORKS 版本: {swApp.RevisionNumber()}");
+// --- 主程序开始 ---
+Console.WriteLine("--- SolidWorks 大型装配体/零件简化程序 ---");
+var stopwatch = Stopwatch.StartNew();
 
-// 新建一个零件
-ModelDoc2 swModel = (ModelDoc2)swApp.NewPart().AssertNotNull("未能创建新零件。");
+// 1. 连接到 SolidWorks 实例
+Console.WriteLine("正在连接到 SolidWorks 实例...");
+var sldWorks = SolidWorksConnector.GetSldWorksApp();
+sldWorks.AssertNotNull("未能连接或启动 SolidWorks。");
+sldWorks.Visible = true; // 在生产环境中可以注释掉此行以在后台运行，加快速度
 
-Console.WriteLine($"日志：新零件 '{swModel.GetTitle()}' 已创建。");
+// 2. 打开目标文件
+Console.WriteLine($"正在打开文件: {Path.GetFileName(TargetFilePath)}");
 
-// --- 核心建模代码开始 ---
+string extension = Path.GetExtension(TargetFilePath).ToUpperInvariant();
+swDocumentTypes_e docTypeToOpen;
 
-// 为了方便，我们获取几个常用的“管理器”对象
-FeatureManager swFeatureManager = swModel.FeatureManager;
-SketchManager swSketchManager = swModel.SketchManager;
-ModelDocExtension swModelDocExt = swModel.Extension;
-SelectionMgr swSelMgr = (SelectionMgr)swModel.SelectionManager;
+// -- 根据文件扩展名确定文档类型 --
+if (extension.EndsWith("SLDPRT"))
+{
+    docTypeToOpen = swDocumentTypes_e.swDocPART;
+}
+else if (extension.EndsWith("SLDASM"))
+{
+    docTypeToOpen = swDocumentTypes_e.swDocASSEMBLY;
+}
+else
+{
+    // 如果是其他类型，抛出异常，因为我们的简化逻辑不支持
+    throw new NotSupportedException($"不支持的文件类型: {extension}。程序仅支持 .SLDPRT 和 .SLDASM 文件。");
+}
 
-// --- 定义法兰盘的几何尺寸 (单位: 米) ---
-double flangeOuterDiameter = 0.150; // 法兰外径 150mm
-double flangeThickness = 0.020; // 法兰厚度 20mm
-double pipeInnerDiameter = 0.060; // 中心孔径 (通管) 60mm
-double boltCircleDiameter = 0.110; // 螺栓孔中心圆直径 110mm
-double boltHoleDiameter = 0.015; // 螺栓孔直径 15mm
-int boltHoleCount = 6; // 螺栓孔数量 6个
+int errors = 0;
+int warnings = 0;
+var sourceDoc = sldWorks.OpenDoc6(
+    TargetFilePath,
+    (int)swDocumentTypes_e.swDocPART, // 我们已知这是个零件
+    (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
+    "",
+    ref errors,
+    ref warnings) as IModelDoc2;
 
-Console.WriteLine("日志：法兰盘尺寸参数已定义。");
+sourceDoc.AssertNotNull($"无法打开源文件: {TargetFilePath}");
+Console.WriteLine("源文件打开成功。");
 
-// --- 步骤 1: 创建法兰盘本体 (拉伸一个圆盘) ---
-Console.WriteLine("\n--- 步骤 1: 创建法兰盘本体 ---");
+// 3. 判断文档类型并执行相应的简化逻辑
+// 我们的逻辑现在只针对零件，如果需要支持装配体，需要另外编写一个复制零部件到新装配体的方法
+if (sourceDoc.GetType() != (int)swDocumentTypes_e.swDocPART)
+{
+    Console.WriteLine("错误：此版本的脚本仅支持简化零件文件 (.SLDPRT)。");
+    return;
+}
 
-swModelDocExt.SelectByID2("前视基准面", "PLANE", 0, 0, 0, false, 0, null, 0)
-    .AssertTrue("选择“前视基准面”失败！请检查 SOLIDWORKS 语言或模板。");
+// 3. 核心简化逻辑：复制到新零件
+var newPartDoc = SimplifyPartByCopyToNew(sldWorks, sourceDoc);
+newPartDoc.AssertNotNull("创建简化零件失败。");
 
-swSketchManager.InsertSketch(true);
-// 检查草图是否成功创建
-swSketchManager.ActiveSketch.AssertNotNull("进入草图模式失败！");
+// 4. 关闭原始文件，不保存
+Console.WriteLine($"正在关闭原始文件: {Path.GetFileName(TargetFilePath)}");
+sldWorks.CloseDoc(Path.GetFileName(TargetFilePath));
 
-swSketchManager.CreateCircleByRadius(0, 0, 0, flangeOuterDiameter / 2.0);
-Console.WriteLine("日志：绘制了法兰外轮廓。");
-swSketchManager.InsertSketch(true);
+// 5. 保存新的简化模型
+string simplifiedFilePath = Path.ChangeExtension(TargetFilePath, $".simplified_top{ComponentsToKeep}_final.SLDPRT");
+var modelExt = newPartDoc.Extension;
+bool saveSuccess = modelExt.SaveAs(simplifiedFilePath, (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
+    (int)swSaveAsOptions_e.swSaveAsOptions_Silent, null, ref errors, ref warnings);
+saveSuccess.AssertTrue($"保存简化模型失败: {simplifiedFilePath}");
+Console.WriteLine($"\n简化模型已成功保存至: {simplifiedFilePath}");
 
-
-Feature flangeBodyFeature = swFeatureManager.FeatureExtrusion3(
-        true, false, false, (int)swEndConditions_e.swEndCondBlind, 0, flangeThickness, 0,
-        false, false, false, false, 0, 0, false, false, false, false, true, true, true, 0, 0, false)
-    .AssertNotNull("创建法兰本体拉伸特征失败！");
-
-Console.WriteLine($"日志：法兰本体拉伸成功，厚度 {flangeThickness * 1000}mm。");
-swModel.ClearSelection2(true);
-
-
-// --- 步骤 2: 创建中心通孔 (拉伸切除) ---
-Console.WriteLine("\n--- 步骤 2: 创建中心通孔 ---");
-
-// 【校验 2.1】检查法兰正面选择是否成功
-swModelDocExt.SelectByID2("", "FACE", 0, 0, flangeThickness, false, 0, null, 0)
-    .AssertTrue("选择法兰盘正面用于中心孔草图失败！");
-
-swSketchManager.InsertSketch(true);
-
-// 检查草图是否成功创建
-swSketchManager.ActiveSketch.AssertNotNull("在法兰盘正面为中心孔创建草图失败！");
-
-swSketchManager.CreateCircleByRadius(0, 0, 0, pipeInnerDiameter / 2.0);
-Console.WriteLine("日志：绘制了中心孔轮廓。");
-swSketchManager.InsertSketch(true);
-
-// 【校验 2.3】检查拉伸切除特征是否成功创建
-Feature centerCutFeature = swFeatureManager.FeatureCut4(
-        true, false, false, (int)swEndConditions_e.swEndCondThroughAll, (int)swEndConditions_e.swEndCondThroughAll,
-        0, 0, false, false, false, false, 0, 0, false, false, false, false, false, true, true, true, true, false, 0, 0, false, false)
-    .AssertNotNull("创建中心通孔拉伸切除特征失败！");
-
-Console.WriteLine("日志：中心通孔切除成功。");
-swModel.ClearSelection2(true);
-
-
-// --- 步骤 3: 创建单个螺栓孔 (为阵列做准备) ---
-Console.WriteLine("\n--- 步骤 3: 创建单个螺栓孔 ---");
-
-double selectionPointX = (pipeInnerDiameter + flangeOuterDiameter) / 4.0;
-// 【校验 3.1】检查法兰正面选择是否成功 (使用安全坐标点)
-swModelDocExt.SelectByID2("", "FACE", selectionPointX, 0, flangeThickness, false, 0, null, 0)
-    .AssertTrue("选择法兰盘正面用于螺栓孔草图失败！");
-
-swSketchManager.InsertSketch(true);
-
-// 【校验 3.2】检查草图是否成功创建
-swSketchManager.ActiveSketch.AssertNotNull("严重错误：在法兰盘正面为螺栓孔创建草图失败！");
-
-swSketchManager.CreateCircleByRadius(0, boltCircleDiameter / 2.0, 0, boltHoleDiameter / 2.0);
-Console.WriteLine("日志：绘制了第一个螺栓孔轮廓。");
-swSketchManager.InsertSketch(true);
-
-// 【校验 3.3】检查拉伸切除特征是否成功创建
-Feature boltHoleSeedFeature = swFeatureManager.FeatureCut4(
-    true, false, false, (int)swEndConditions_e.swEndCondThroughAll, (int)swEndConditions_e.swEndCondThroughAll,
-    0, 0, false, false, false, false, 0, 0, false, false, false, false, false, true, true, true, true, false, 0, 0, false, false)
-    .AssertNotNull("创建单个螺栓孔拉伸切除特征失败！");
-
-Console.WriteLine("日志：单个螺栓孔（阵列源）切除成功。");
-swModel.ClearSelection2(true);
+// 6. 完成
+stopwatch.Stop();
+Console.WriteLine($"\n--- 所有任务完成！总耗时: {stopwatch.Elapsed.TotalSeconds:F2} 秒 ---");
 
 
-// --- 步骤 4: 圆周阵列螺栓孔 ---
-Console.WriteLine("\n--- 步骤 4: 创建螺栓孔圆周阵列 ---");
+// --- 核心逻辑方法 ---
 
-// 1. 选择阵列轴：选择中心孔的圆形边线。这非常稳定。
-//    我们使用一个在边线上的精确坐标 (X=内半径, Y=0, Z=厚度) 来选中它。
-//    SelectByID2 的 Mark 参数对于阵列轴是 1。
-swModelDocExt.SelectByID2("", "EDGE", pipeInnerDiameter / 2.0, 0, flangeThickness, false, 1, null, 0)
-    .AssertTrue("选择阵列旋转轴（中心孔上边缘线）失败！");
+/// <summary>
+/// 【最终可靠版】通过将最大的N个实体复制到一个全新的零件文件中来简化模型。
+/// 这是处理超大型多实体零件最稳定、最高效的方法。
+/// </summary>
+static IModelDoc2? SimplifyPartByCopyToNew(ISldWorks sldWorks, IModelDoc2 sourceDoc)
+{
+    var sourcePartDoc = (IPartDoc)sourceDoc;
 
-Console.WriteLine("日志：已选择阵列旋转轴。");
+    Console.WriteLine("正在从源文件中获取所有实体...");
+    object[]? bodies = sourcePartDoc.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
+    (bodies is not null && bodies.Length > 0).AssertTrue("在源零件中未找到任何实体。");
+    Console.WriteLine($"分析开始，共找到 {bodies.Length} 个实体。");
 
-// 2. 选择要阵列的特征本身。
-//    注意 SelectByID2 的第二个参数 Append 设为 true，这样才能将特征添加到已选的轴上。
-//    Mark 参数对于要阵列的特征是 4。
-swModelDocExt.SelectByID2(boltHoleSeedFeature.Name, "BODYFEATURE", 0, 0, 0, true, 4, null, 0)
-    .AssertTrue($"选择要阵列的特征 '{boltHoleSeedFeature.Name}' 失败！");
+    Console.WriteLine("正在计算每个实体的尺寸...");
+    var bodyData = new List<(IBody2 Body, double Volume)>();
+    foreach (var bodyObj in bodies)
+    {
+        var body = (IBody2)bodyObj;
+        if (body.GetBodyBox() is not double[] box) continue;
+        double volume = CalculateVolume(box);
+        if (volume > 0)
+        {
+            bodyData.Add((body, volume));
+        }
+    }
 
-Console.WriteLine($"日志：已选择要阵列的特征 '{boltHoleSeedFeature.Name}'。");
+    Console.WriteLine("正在对实体进行排序...");
+    var sortedBodies = bodyData.OrderByDescending(d => d.Volume).ToList();
 
-// 3. 创建圆周阵列特征。
-//    GeometryPattern 设置为 false，表示我们正在进行特征阵列。
-Feature circularPatternFeature = swFeatureManager.FeatureCircularPattern4(
-    boltHoleCount, // 参数 1: Number - 实例总数
-    (360.0 * Math.PI / 180.0), // 参数 2: Spacing - 阵列总角度 (360度，需转为弧度)
-    false, // 参数 3: FlipDirection - 反向
-    "", // 参数 4: DName - 特征尺寸名称 (通常为空)
-    false, // 参数 5: GeometryPattern - 设为 false，执行特征阵列
-    true, // 参数 6: EqualSpacing - 均布
-    false // 参数 7: VaryInstance - 实例随形变化
-)
-.AssertNotNull("创建圆周阵列失败！");
+    if (sortedBodies.Count <= ComponentsToKeep)
+    {
+        Console.WriteLine($"实体总数 ({sortedBodies.Count}) 不超过要保留的数量 ({ComponentsToKeep})，无需简化。");
+        // 在这种情况下，我们可能还是希望得到一个“干净”的副本，所以继续执行复制流程
+    }
 
-Console.WriteLine($"日志：成功创建了 {boltHoleCount} 个螺栓孔的圆周阵列。");
-swModel.ClearSelection2(true);
+    var bodiesToKeep = sortedBodies
+        .Take(ComponentsToKeep)
+        .Select(d => d.Body)
+        .ToList();
+
+    Console.WriteLine($"排序完成。将把最大的 {bodiesToKeep.Count} 个实体复制到新零件中。");
+
+    // 步骤 2: 创建一个新的空零件
+    Console.WriteLine("正在创建新的目标零件文件...");
+    var newPartDoc = (sldWorks.NewPart() as IModelDoc2)
+        .AssertNotNull("未能使用 ISldWorks.NewPart() 创建新零件。请检查SolidWorks是否能手动创建新零件。");
+
+    var newPart = (IPartDoc)newPartDoc;
+
+    Console.WriteLine("正在执行实体复制操作...");
+    // sourceDoc.Lock(); // 锁定源文档
+    // newPartDoc.Lock(); // 锁定目标文档
+
+    foreach (var bodyToCopy in bodiesToKeep)
+    {
+        // 步骤 3a: 在内存中创建实体的临时副本
+        var tempBody = (IBody2)bodyToCopy.Copy();
+        tempBody.AssertNotNull("复制实体到内存失败。");
+
+        // 步骤 3b: 将临时实体副本作为新特征插入到新零件中
+        // 第二个参数 `AddToExisting`: 第一个实体设为 false (创建基体)，后续设为 true (作为新实体添加)
+        newPart.CreateFeatureFromBody3(tempBody, false, (int)swCreateFeatureBodyOpts_e.swCreateFeatureBodySimplify);
+    }
+
+    // sourceDoc.UnLock();
+    // newPartDoc.UnLock();
 
 
-// --- 模型收尾 ---
-swModel.ViewZoomtofit2();
-swModel.ShowNamedView2("*等轴测", -1);
+    newPartDoc.ForceRebuild3(false); // 重建新零件
+    Console.WriteLine("所有实体已成功复制到新零件。");
+    return newPartDoc;
+}
 
-Console.WriteLine("\n日志：法兰盘建模完成！");
-Console.WriteLine("\n脚本执行完毕，按任意键退出...");
-Console.ReadKey();
+/// <summary>
+/// 根据边界框的6个 double 值计算体积。
+/// </summary>
+static double CalculateVolume(double[] box)
+{
+    // box = [Xmin, Ymin, Zmin, Xmax, Ymax, Zmax]
+    return (box[3] - box[0]) * (box[4] - box[1]) * (box[5] - box[2]);
+}
