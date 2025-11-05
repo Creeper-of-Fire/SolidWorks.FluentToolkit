@@ -159,6 +159,47 @@ public static class FeatureHelper
 
         return model;
     }
+    
+    /// <inheritdoc cref="CreateRevolveBoss(IModelDoc2,Action{ISketchManager},out Feature)"/>
+    public static IModelDoc2 CreateRevolveBoss(this IModelDoc2 model, Action<ISketchManager> sketchAction)
+    {
+        return CreateRevolveBoss(model, sketchAction, out _);
+    }
+
+    /// <summary>
+    /// 【新增】在当前选定的基准面上，围绕第一条构造线（中心线）进行旋转凸台/基体操作。
+    /// </summary>
+    /// <param name="model">要进行操作的 ModelDoc2 文档。</param>
+    /// <param name="sketchAction">一个委托，定义了如何在草图中绘制几何图形。必须包含一个封闭轮廓和一条中心线作为旋转轴。</param>
+    /// <param name="createdFeature">创建的旋转特征。</param>
+    public static IModelDoc2 CreateRevolveBoss(
+        this IModelDoc2 model,
+        Action<ISketchManager> sketchAction,
+        out Feature createdFeature)
+    {
+        var featureManager = model.FeatureManager;
+        model.Sketch(sketchAction);
+
+        // 与 CreateRevolveCut 几乎完全相同，只是 IsCut 参数为 false
+        createdFeature = featureManager.FeatureRevolve2(
+            true,  // SingleDir
+            true,  // IsSolid
+            false, // IsThin
+            false, // IsCut: false 表示这是一个凸台/基体操作
+            false, // ReverseDir
+            false, // BothDirectionUpToSameEntity
+            (int)swEndConditions_e.swEndCondBlind, // Dir1Type: 方向一终止条件 = 给定角度
+            (int)swEndConditions_e.swEndCondBlind, // Dir2Type: 方向二终止条件 (因单向而无效)
+            360.0 * Math.PI / 180.0, // 旋转 360 度
+            0,
+            false, false, 0, 0, 0, 0, 0,
+            true,  // Merge
+            false, // UseFeatScope
+            true   // UseAutoSelect
+        ).AssertNotNull("创建旋转凸台/基体特征失败！");
+
+        return model;
+    }
 
     /// <summary>
     /// 在当前选定的基准面上，围绕第一条构造线（中心线）进行旋转切除。
