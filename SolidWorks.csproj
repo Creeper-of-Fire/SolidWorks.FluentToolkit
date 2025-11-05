@@ -14,7 +14,10 @@
       <PackageReference Include="Microsoft.Windows.Compatibility" Version="9.0.10" />
       <PackageReference Include="Visiativ.SOLIDWORKS.Interop" Version="33.0.0" />
       <PackageReference Include="Xarial.XCad" Version="0.8.2" />
+      <PackageReference Include="Xarial.XCad.Inventor" Version="0.8.2" />
       <PackageReference Include="Xarial.XCad.SolidWorks" Version="0.8.2" />
+      <PackageReference Include="Xarial.XCad.SwDocumentManager" Version="0.8.2" />
+      <PackageReference Include="Xarial.XCad.Toolkit" Version="0.8.2" />
     </ItemGroup>
 
 </Project>

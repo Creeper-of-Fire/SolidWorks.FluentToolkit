@@ -1,6 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using SolidWorks.Interop.sldworks;
+using Xarial.XCad.SolidWorks;
 
 // ReSharper disable InconsistentNaming
 
@@ -43,6 +44,19 @@ public static class Marshal2
 
 public static class SolidWorksConnector
 {
+    
+    /// <summary>
+    /// 设置 SOLIDWORKS 应用程序
+    /// </summary>
+    /// <param name="sldWorks"></param>
+    /// <param name="action"></param>
+    /// <returns></returns>
+    public static SldWorks Setup(this SldWorks sldWorks, Action<SldWorks> action)
+    {
+        action(sldWorks);
+        return sldWorks;
+    }
+    
     /// <summary>
     /// 设置 SOLIDWORKS 应用程序的可见性
     /// </summary>
@@ -54,6 +68,8 @@ public static class SolidWorksConnector
         sldWorks.Visible = visible;
         return sldWorks;
     }
+    
+    public static ISwApplication ToApplication(this SldWorks sldWorks) => SwApplicationFactory.FromPointer(sldWorks);
 
     /// <summary>
     /// 获取一个 SOLIDWORKS 应用程序 (SldWorks) 的实例。
