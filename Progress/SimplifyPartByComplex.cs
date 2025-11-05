@@ -9,16 +9,15 @@ public class SimplifyPartByComplex(
     SldWorks sldWorks,
     string targetFilePath = SimplifyPartByComplex.DefaultTargetFilePath,
     int componentsToKeep = SimplifyPartByComplex.DefaultComponentsToKeep
-)
+):AbstractRun(sldWorks)
 {
     private const string DefaultTargetFilePath = @"D:\User\Desktop\Project\SolidWorksProject\xhzhuji VVFWCRYOAXIS.stp.temp.SLDPRT";
     private const int DefaultComponentsToKeep = 3000;
 
-    private SldWorks SldWorks { get; } = sldWorks;
     private string TargetFilePath { get; } = targetFilePath;
     private int ComponentsToKeep { get; } = componentsToKeep;
 
-    public void Run()
+    public override void Run()
     {
         // --- 主程序开始 ---
         Console.WriteLine("--- SolidWorks 大型装配体/零件简化程序 ---");
