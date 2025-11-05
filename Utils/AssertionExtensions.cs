@@ -83,4 +83,29 @@ public static class AssertionExtensions
 
         throw new InvalidOperationException(fullErrorMessage);
     }
+
+    public static IEnumerable<T> AssertNotEmpty<T>(
+        this IEnumerable<T> enumerable,
+        string errorMessage,
+        [CallerMemberName] string memberName = "",
+        [CallerFilePath] string sourceFilePath = "",
+        [CallerLineNumber] int sourceLineNumber = 0)
+    {
+        var list = enumerable.ToList();
+        if (list.Any())
+        {
+            return list;
+        }
+
+        string fullErrorMessage =
+            $"[断言失败] 集合为空: {errorMessage}\n" +
+            $"    -> 在方法: {memberName}\n" +
+            $"    -> 在文件: {Path.GetFileName(sourceFilePath)}\n" +
+            $"    -> 在行号: {sourceLineNumber}";
+
+        Console.ForegroundColor = ConsoleColor.Red;
+        Console.WriteLine(fullErrorMessage);
+        Console.ResetColor();
+        throw new InvalidOperationException(fullErrorMessage);
+    }
 }

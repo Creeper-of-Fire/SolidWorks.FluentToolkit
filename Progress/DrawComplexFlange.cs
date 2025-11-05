@@ -79,10 +79,7 @@ public class DrawComplexFlange(ISwApplication app) : AbstractRun(app)
         const double rectZ2 = rectZ1 - waterlineGrooveDepth; // 切入指定深度
         
         // 关闭自动几何关系，以确保绘图的绝对精度
-        this.SldWorks.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSketchAutomaticRelations, false);
-        this.SldWorks.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSketchInference, false);
-        this.SldWorks.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSketchSnapsGrid, false);
-        this.SldWorks.SetUserPreferenceToggle((int)swUserPreferenceToggle_e.swSketchSnapsPoints, false);
+        this.SldWorks.CloseSketchAutoGro();
         
         swModel.CreateRevolveCut(sm =>
         {
