@@ -1,12 +1,13 @@
 ﻿using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using SolidWorks.Interop.sldworks;
+
 // ReSharper disable InconsistentNaming
 
 // 这个类是为了在现代 .NET 平台上恢复 .NET Framework 中存在的 Marshal.GetActiveObject 功能。
 // 由于该功能是 Windows 特有的 COM 操作，并未被包含在跨平台的 .NET 核心库中。
 // 因此，我们通过 P/Invoke (平台调用) 直接调用底层的 Windows API (ole32.dll, oleaut32.dll) 来实现相同的功能。
-namespace SolidWorks;
+namespace SolidWorks.Utils;
 
 [SupportedOSPlatform("windows")] // 明确指出这个类只在 Windows 上工作
 public static class Marshal2
@@ -42,6 +43,18 @@ public static class Marshal2
 
 public static class SolidWorksConnector
 {
+    /// <summary>
+    /// 设置 SOLIDWORKS 应用程序的可见性
+    /// </summary>
+    /// <param name="sldWorks"></param>
+    /// <param name="visible"></param>
+    /// <returns></returns>
+    public static SldWorks SetVisible(this SldWorks sldWorks, bool visible)
+    {
+        sldWorks.Visible = visible;
+        return sldWorks;
+    }
+
     /// <summary>
     /// 获取一个 SOLIDWORKS 应用程序 (SldWorks) 的实例。
     /// 会首先尝试连接到已有的实例，如果失败，则启动一个新实例。

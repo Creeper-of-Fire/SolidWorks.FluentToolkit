@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
-namespace SolidWorks;
+namespace SolidWorks.Utils;
 
 /// <summary>
 /// 包含通用扩展方法的静态类
