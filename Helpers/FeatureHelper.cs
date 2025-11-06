@@ -9,6 +9,8 @@ namespace SolidWorks.Helpers;
 /// </summary>
 public static class FeatureHelper
 {
+    private static SldWorks SldWorks { get; } = SolidWorksConnector.GetSldWorksApp();
+
     /// <summary>
     /// (通用辅助方法) 执行一个会创建新特征的操作，并通过“差集法”安全地返回新创建的特征。
     /// 这种方法是语言无关且非常可靠的。
@@ -159,8 +161,8 @@ public static class FeatureHelper
 
         return model;
     }
-    
-     /// <summary>
+
+    /// <summary>
     /// 在当前选定的基准面上，围绕第一条构造线（中心线）进行旋转操作。
     /// </summary>
     /// <param name="model">要进行操作的 ModelDoc2 文档。</param>
@@ -174,7 +176,7 @@ public static class FeatureHelper
         out Feature createdFeature)
     {
         var featureManager = model.FeatureManager;
-        
+
         model.Sketch(sketchAction);
 
         // FeatureRevolve2 用于创建旋转凸台和旋转切除
@@ -211,7 +213,7 @@ public static class FeatureHelper
     {
         return CreateRevolveFeature(model, sketchAction, isCut: false, out createdFeature);
     }
-    
+
     /// <inheritdoc cref="CreateRevolveFeature(IModelDoc2,Action{ISketchManager},bool,out Feature)"/>
     /// <remarks>在当前选定的基准面上，围绕第一条构造线（中心线）进行旋转切除。</remarks>
     public static IModelDoc2 CreateRevolveCut(this IModelDoc2 model, Action<ISketchManager> sketchAction, out Feature createdFeature)

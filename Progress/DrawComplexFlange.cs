@@ -78,9 +78,6 @@ public class DrawComplexFlange(ISwApplication app) : AbstractRun(app)
         const double rectZ1 = flangeThickness; // 从法兰顶面开始
         const double rectZ2 = rectZ1 - waterlineGrooveDepth; // 切入指定深度
         
-        // 关闭自动几何关系，以确保绘图的绝对精度
-        this.SldWorks.CloseSketchAutoGro();
-        
         swModel.CreateRevolveCut(sm =>
         {
             Console.WriteLine("日志：正在创建旋转切除的中心线作为旋转轴...");

@@ -1,4 +1,5 @@
 ﻿using SolidWorks.Helpers;
+using SolidWorks.Helpers.Geometry;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SolidWorks.Utils;
@@ -20,8 +21,6 @@ public class DrawWeldNeckFlange(ISwApplication app) : AbstractRun(app)
             (int)swUserPreferenceIntegerValue_e.swUnitSystem, 0, (int)swUnitSystem_e.swUnitSystem_MMGS);
         Console.WriteLine($"日志：文档单位已设置为 MMGS (毫米、克、秒)。");
 
-        this.SldWorks.CloseSketchAutoGro();
-
         // --- 核心建模代码开始 ---
         Console.WriteLine("\n--- 开始建模: 带颈平焊法兰 ---");
 
@@ -35,26 +34,26 @@ public class DrawWeldNeckFlange(ISwApplication app) : AbstractRun(app)
 
         Console.WriteLine("日志：法兰几何参数已定义。");
 
-        // --- 步骤 2: 基于尺寸计算轮廓顶点坐标 ---
-        // 将所有尺寸转换为半径和实际坐标值
+        // --- 步骤 2: 基于尺寸计算轮廓顶点坐标 (使用全局3D坐标) ---
+        // 我们计划在 "右视基准面" (YZ平面) 上绘图，所以所有点的 X 坐标都为 0。
+        // Z 坐标对应草图的 X 轴，Y 坐标对应草图的 Y 轴。
         double radiusD = flangeDiameterD / 2.0;
         double radiusA1 = neckDiameterA1 / 2.0;
         double radiusB1 = boreDiameterB1 / 2.0;
-
-        // 计算斜角的水平投影长度 (delta_z)
         double chamferDeltaY = radiusA1 - radiusB1;
         double chamferDeltaZ = chamferDeltaY * Math.Tan(neckChamferAngle * Math.PI / 180.0);
-
-        // 计算所有顶点的Z坐标 (对应草图X) 和Y坐标 (对应草图Y)
-        // (z, y)
-        var p1 = (z: 0.0, y: radiusB1);                   // 内孔后边缘
-        var p2 = (z: 0.0, y: radiusD);                    // 外盘后边缘
-        var p3 = (z: flangeThicknessC, y: radiusD);       // 外盘前边缘
-        var p4 = (z: flangeThicknessC, y: radiusA1);      // 颈部与盘连接处
-        var p5 = (z: totalLengthH - chamferDeltaZ, y: radiusA1); // 颈部斜角开始处
-        var p6 = (z: totalLengthH, y: radiusB1);          // 颈部斜角结束处 (最前端)
-
-        Console.WriteLine("日志：已根据参数计算出截面轮廓的6个顶点。");
+        
+        // 定义全局坐标点 (X=0, Y, Z)
+        var contourPoints = new Point3D[]
+        {
+            new (0, radiusB1, 0.0),                      // p1: 内孔后边缘
+            new (0, radiusD, 0.0),                       // p2: 外盘后边缘
+            new (0, radiusD, flangeThicknessC),          // p3: 外盘前边缘
+            new (0, radiusA1, flangeThicknessC),         // p4: 颈部与盘连接处
+            new (0, radiusA1, totalLengthH - chamferDeltaZ), // p5: 颈部斜角开始处
+            new (0, radiusB1, totalLengthH)              // p6: 颈部斜角结束处
+        };
+        Console.WriteLine("日志：已根据参数计算出截面轮廓的6个全局3D坐标点。");
 
         // --- 步骤 3: 使用旋转命令创建法兰主体 ---
         Console.WriteLine("\n--- 步骤 3: 创建旋转凸台基体 ---");
@@ -66,16 +65,11 @@ public class DrawWeldNeckFlange(ISwApplication app) : AbstractRun(app)
 
                 // 1. 创建中心线作为旋转轴 (必须是第一条构造线)
                 // 我们绕Z轴旋转，在YZ平面草图中，Z轴是X轴
-                sm.CreateCenterLine(p1.z - 10, 0, 0, p6.z + 10, 0, 0);
+                sm.CreateCenterLine(-10, 0, 0, totalLengthH + 10, 0, 0);
                 Console.WriteLine("日志：已创建旋转中心线。");
 
-                // 2. 依次连接顶点，绘制封闭轮廓
-                sm.CreateLine(p1.z, p1.y, 0, p2.z, p2.y, 0); // P1 -> P2
-                sm.CreateLine(p2.z, p2.y, 0, p3.z, p3.y, 0); // P2 -> P3
-                sm.CreateLine(p3.z, p3.y, 0, p4.z, p4.y, 0); // P3 -> P4
-                sm.CreateLine(p4.z, p4.y, 0, p5.z, p5.y, 0); // P4 -> P5
-                sm.CreateLine(p5.z, p5.y, 0, p6.z, p6.y, 0); // P5 -> P6
-                sm.CreateLine(p6.z, p6.y, 0, p1.z, p1.y, 0); // P6 -> P1 (闭合)
+                // 2. 使用 DrawContour 绘制整个封闭轮廓
+                sm.DrawContour(contourPoints);
 
                 Console.WriteLine("日志：截面轮廓绘制完成。");
             },out _)
