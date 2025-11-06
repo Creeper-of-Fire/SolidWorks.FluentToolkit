@@ -17,7 +17,7 @@ public static class AssertionExtensions
     /// <param name="memberName">【自动捕获】调用此方法的成员名称。</param>
     /// <param name="sourceFilePath">【自动捕获】调用此方法的源文件路径。</param>
     /// <param name="sourceLineNumber">【自动捕获】调用此方法的源文件行号。</param>
-    public static void AssertTrue(
+    public static bool AssertTrue(
         [DoesNotReturnIf(false)] this bool value,
         string errorMessage,
         [CallerMemberName] string memberName = "",
@@ -26,7 +26,7 @@ public static class AssertionExtensions
     {
         // 如果断言为真 (value is true)，则什么也不做，直接返回。
         if (value)
-            return;
+            return true;
 
         // --- 断言失败的处理逻辑 ---
 

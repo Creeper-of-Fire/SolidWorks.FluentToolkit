@@ -42,7 +42,7 @@ public class DrawComplexFlange(ISwApplication app) : AbstractRun(app)
         // 步骤 1.1: 创建法兰盘本体
         swModel.SelectByName("前视基准面", "PLANE")
             .CreateBossExtrusion(flangeThickness,
-                sm => sm.CreateCircleByRadius(0, 0, 0, flangeOuterDiameter / 2.0))
+                sm => sm.CreateCircleByRadius(0, 0, 0, flangeOuterDiameter / 2.0),out _)
             .ClearSelect(); // 操作完成后立即清空选择，养成好习惯
 
         Console.WriteLine("日志：法兰本体拉伸成功。");
@@ -52,7 +52,7 @@ public class DrawComplexFlange(ISwApplication app) : AbstractRun(app)
         double selectionPointX = (pipeInnerDiameter + flangeOuterDiameter) / 4.0; // 在内圆和外圆之间选一个点
 
         swModel.SelectFaceByPoint(selectionPointX, 0, flangeThickness) // 在Z=flangeThickness的平面上选择一个面
-            .CreateCutThroughAll(sm => sm.CreateCircleByRadius(0, 0, 0, pipeInnerDiameter / 2.0))
+            .CreateCutThroughAll(sm => sm.CreateCircleByRadius(0, 0, 0, pipeInnerDiameter / 2.0),out _)
             .ClearSelect();
 
         Console.WriteLine("日志：中心通孔切除成功，法兰基体完成。");

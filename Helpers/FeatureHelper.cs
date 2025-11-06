@@ -73,12 +73,6 @@ public static class FeatureHelper
         return model;
     }
 
-    /// <inheritdoc cref="CreateBossExtrusion(IModelDoc2,double,Action{ISketchManager},out Feature)"/>
-    public static IModelDoc2 CreateBossExtrusion(this IModelDoc2 model, double depth, Action<ISketchManager> sketchAction)
-    {
-        return CreateBossExtrusion(model, depth, sketchAction, out _);
-    }
-
     /// <summary>
     /// 在当前选定的基准面或平面上创建一个拉伸凸台。
     /// </summary>
@@ -107,12 +101,6 @@ public static class FeatureHelper
         return model;
     }
 
-    /// <inheritdoc cref="CreateCutThroughAll(IModelDoc2,Action{ISketchManager},out Feature)"/>
-    public static IModelDoc2 CreateCutThroughAll(this IModelDoc2 model, Action<ISketchManager> sketchAction)
-    {
-        return CreateCutThroughAll(model, sketchAction, out _);
-    }
-
     /// <summary>
     /// 在当前选定的平面上创建一个“完全贯穿”的拉伸切除特征。
     /// </summary>
@@ -134,7 +122,8 @@ public static class FeatureHelper
                 true, false, false,
                 (int)swEndConditions_e.swEndCondThroughAll,
                 (int)swEndConditions_e.swEndCondThroughAll,
-                0, 0, false, false, false, false, 0, 0, false, false, false, false, false, true, true, true, true, false, 0, 0, false,
+                0, 0, false, false, false, false, 0, 0,
+                false, false, false, false, false, true, true, true, true, false, 0, 0, false,
                 false)
             .AssertNotNull("创建拉伸切除特征失败！");
 
@@ -221,12 +210,6 @@ public static class FeatureHelper
         return CreateRevolveFeature(model, sketchAction, isCut: true, out createdFeature);
     }
 
-    /// <inheritdoc cref="CreateCutExtrusion(IModelDoc2,double,Action{ISketchManager},out Feature)"/>
-    public static IModelDoc2 CreateCutExtrusion(this IModelDoc2 model, double depth, Action<ISketchManager> sketchAction)
-    {
-        return CreateCutExtrusion(model, depth, sketchAction, out _);
-    }
-
     /// <summary>
     /// 在当前选定的基准面或平面上创建一个指定深度的拉伸切除。
     /// </summary>
@@ -298,6 +281,68 @@ public static class FeatureHelper
                 false // 参数 7: VaryInstance - 实例随形变化
             )
             .AssertNotNull("创建圆周阵列失败！");
+
+        return model;
+    }
+
+    /// <summary>
+    /// 在当前选定的边线、面、特征或循环上创建等半径圆角。
+    /// </summary>
+    /// <param name="model">要进行操作的 ModelDoc2 文档。</param>
+    /// <param name="radius">圆角的半径。</param>
+    /// <param name="createdFeature">创建的圆角特征。</param>
+    public static IModelDoc2 CreateConstantRadiusFillet(this IModelDoc2 model, double radius, out Feature createdFeature)
+    {
+        var featureManager = model.FeatureManager;
+
+        // 1. 创建圆角特征的“定义”对象
+        var filletDef = (ISimpleFilletFeatureData2)featureManager.CreateDefinition((int)swFeatureNameID_e.swFmFillet);
+
+        // 2. 初始化为“等半径圆角”类型
+        filletDef.Initialize((int)swSimpleFilletType_e.swConstRadiusFillet);
+
+        // 3. 设置核心参数
+        filletDef.DefaultRadius = radius;
+        filletDef.PropagateToTangentFaces = true; // 自动延伸到所有相切的面，这是最常用的选项
+
+        // 4. 根据定义创建特征
+        createdFeature = featureManager.CreateFeature(filletDef).AssertNotNull("创建等半径圆角失败！");
+
+        return model;
+    }
+
+    /// <summary>
+    /// 在当前选定的边线上创建“角度-距离”倒角。
+    /// </summary>
+    /// <param name="model">要进行操作的 ModelDoc2 文档。</param>
+    /// <param name="distance">倒角的距离。</param>
+    /// <param name="angleDegrees">倒角的角度（单位：度）。</param>
+    /// <param name="createdFeature">创建的倒角特征。</param>
+    public static IModelDoc2 CreateAngleDistanceChamfer(
+        this IModelDoc2 model, double distance, double angleDegrees, out Feature createdFeature)
+    {
+        var featureManager = model.FeatureManager;
+
+        createdFeature = featureManager.InsertFeatureChamfer(
+                // Options: 使用 swFeatureChamferOption_e 枚举，启用切线延伸
+                Options: (int)swFeatureChamferOption_e.swFeatureChamferTangentPropagation,
+                
+                // ChamferType: 指定类型为“角度-距离”
+                ChamferType: (int)swChamferType_e.swChamferAngleDistance,
+                
+                // Width: 对于“角度-距离”类型，此参数表示距离
+                Width: distance,
+                
+                // Angle: API 需要弧度
+                Angle: angleDegrees * Math.PI / 180.0,
+                
+                // 其他参数对于“角度-距离”类型不适用，传入0
+                OtherDist: 0,
+                VertexChamDist1: 0,
+                VertexChamDist2: 0,
+                VertexChamDist3: 0
+            )
+            .AssertNotNull("创建角度-距离倒角失败！");
 
         return model;
     }
