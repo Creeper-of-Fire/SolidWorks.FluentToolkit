@@ -1,16 +1,16 @@
 ﻿using System.Diagnostics;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using SolidWorks.Tools;
 using SolidWorks.Utils;
-using Xarial.XCad.SolidWorks;
 
 namespace SolidWorks.Progress;
 
 public class SimplifyPartByComplex(
-    ISwApplication app,
+    ISldWorks sldWorks,
     string targetFilePath = SimplifyPartByComplex.DefaultTargetFilePath,
     int componentsToKeep = SimplifyPartByComplex.DefaultComponentsToKeep
-) : AbstractRun(app)
+) : AbstractRun(sldWorks)
 {
     private const string DefaultTargetFilePath = @"D:\User\Desktop\Project\SolidWorksProject\xhzhuji VVFWCRYOAXIS.stp.temp.SLDPRT";
     private const int DefaultComponentsToKeep = 3000;

@@ -5,12 +5,12 @@ using IModelDoc2 = SolidWorks.Interop.sldworks.IModelDoc2;
 using IPartDoc = SolidWorks.Interop.sldworks.IPartDoc;
 using ISldWorks = SolidWorks.Interop.sldworks.ISldWorks;
 
-namespace SolidWorks;
+namespace SolidWorks.Tools;
 
 public static class SimplifyPart
 {
     /// <summary>
-    /// 【最终可靠版】通过将最大的N个实体复制到一个全新的零件文件中来简化模型。
+    /// 通过将最大的N个实体复制到一个全新的零件文件中来简化模型。
     /// 这是处理超大型多实体零件最稳定、最高效的方法。
     /// </summary>
     public static IModelDoc2 SimplifyPartByCopyToNew(ISldWorks sldWorks, IModelDoc2 sourceDoc, int componentsToKeep)

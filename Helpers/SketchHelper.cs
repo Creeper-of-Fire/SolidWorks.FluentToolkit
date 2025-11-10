@@ -1,8 +1,6 @@
 ﻿using SolidWorks.Helpers.Geometry;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Utils;
-using System.Collections.Generic;
-using System.Linq;
 
 namespace SolidWorks.Helpers;
 

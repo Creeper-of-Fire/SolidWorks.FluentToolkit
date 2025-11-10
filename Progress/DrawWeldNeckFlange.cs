@@ -3,14 +3,13 @@ using SolidWorks.Helpers.Geometry;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SolidWorks.Utils;
-using Xarial.XCad.SolidWorks;
 
 namespace SolidWorks.Progress;
 
 /// <summary>
 /// 根据标准图纸，创建一个带颈平焊法兰 (Weld Neck Flange)。
 /// </summary>
-public class DrawWeldNeckFlange(ISwApplication app) : AbstractRun(app)
+public class DrawWeldNeckFlange(ISldWorks sldWorks) : AbstractRun(sldWorks)
 {
     public override void Run()
     {

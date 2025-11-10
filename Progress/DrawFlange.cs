@@ -3,11 +3,10 @@ using SolidWorks.Helpers.Geometry;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SolidWorks.Utils;
-using Xarial.XCad.SolidWorks;
 
 namespace SolidWorks.Progress;
 
-public class DrawFlange(ISwApplication app) : AbstractRun(app)
+public class DrawFlange(ISldWorks sldWorks) : AbstractRun(sldWorks)
 {
     public override void Run()
     {
@@ -75,40 +74,40 @@ public class DrawFlange(ISwApplication app) : AbstractRun(app)
         Console.WriteLine("日志：法兰主体旋转特征已成功创建！");
 
 
-        // // --- 步骤 3: 在法兰盘平面上创建水线凹槽 ---
-        // Console.WriteLine("\n--- 步骤 3: 循环创建水线凹槽 (旋转切除) ---");
-        //
-        // // 我们需要在与主体相同的平面上进行旋转切除
-        // swModel.SelectByName("右视基准面", "PLANE", append: false)
-        //     .CreateRevolveCut(sm =>
-        //     {
-        //         Console.WriteLine("日志：正在创建旋转切除的中心线...");
-        //         sm.CreateCenterLine(-10, 0, 0, totalLengthH + 10, 0, 0); // 同样的旋转轴
-        //
-        //         int waterlineCount = (int)((waterlineEndRadius - waterlineStartRadius) / waterlineSpacing);
-        //         for (int i = 0; i <= waterlineCount; i++)
-        //         {
-        //             double currentRadius = waterlineStartRadius + i * waterlineSpacing;
-        //             Console.WriteLine($"日志：正在为第 {i + 1}/{waterlineCount + 1} 条水线绘制截面，半径 {currentRadius}mm");
-        //
-        //             // 凹槽从Z=0平面切入，深度为waterlineGrooveDepth
-        //             // 在“右视基准面”草图中，全局Z轴对应草图的-X轴
-        //             const double rectStartX_Sketch = 0; // 对应全局 Z=0
-        //             const double rectEndX_Sketch = -waterlineGrooveDepth; // 对应全局 Z=waterlineGrooveDepth
-        //
-        //             // Y坐标控制凹槽的径向位置
-        //             double rectY1 = currentRadius;
-        //             double rectY2 = rectY1 + grooveWidth;
-        //
-        //             sm.CreateCornerRectangle(rectStartX_Sketch, rectY1, 0, rectEndX_Sketch, rectY2, 0)
-        //                 .AssertNotNull($"创建第{i + 1}个水线矩形失败");
-        //         }
-        //     }, out _);
-        //
-        // swModel.ClearSelection();
-        // Console.WriteLine("日志：所有水线凹槽已通过旋转切除创建。");
-        //
-        //
+        // --- 步骤 3: 在法兰盘平面上创建水线凹槽 ---
+        Console.WriteLine("\n--- 步骤 3: 循环创建水线凹槽 (旋转切除) ---");
+        
+        // 我们需要在与主体相同的平面上进行旋转切除
+        swModel.SelectByName("右视基准面", "PLANE", append: false)
+            .CreateRevolveCut(sm =>
+            {
+                Console.WriteLine("日志：正在创建旋转切除的中心线...");
+                sm.CreateCenterLine(-10, 0, 0, totalLengthH + 10, 0, 0); // 同样的旋转轴
+        
+                int waterlineCount = (int)((waterlineEndRadius - waterlineStartRadius) / waterlineSpacing);
+                for (int i = 0; i <= waterlineCount; i++)
+                {
+                    double currentRadius = waterlineStartRadius + i * waterlineSpacing;
+                    Console.WriteLine($"日志：正在为第 {i + 1}/{waterlineCount + 1} 条水线绘制截面，半径 {currentRadius}mm");
+        
+                    // 凹槽从Z=0平面切入，深度为waterlineGrooveDepth
+                    // 在“右视基准面”草图中，全局Z轴对应草图的-X轴
+                    const double rectStartX_Sketch = 0; // 对应全局 Z=0
+                    const double rectEndX_Sketch = -waterlineGrooveDepth; // 对应全局 Z=waterlineGrooveDepth
+        
+                    // Y坐标控制凹槽的径向位置
+                    double rectY1 = currentRadius;
+                    double rectY2 = rectY1 + grooveWidth;
+        
+                    sm.CreateCornerRectangle(rectStartX_Sketch, rectY1, 0, rectEndX_Sketch, rectY2, 0)
+                        .AssertNotNull($"创建第{i + 1}个水线矩形失败");
+                }
+            }, out _);
+        
+        swModel.ClearSelection();
+        Console.WriteLine("日志：所有水线凹槽已通过旋转切除创建。");
+        
+        
         // --- 步骤 4: 创建单个螺栓孔 (为阵列做准备) ---
         Console.WriteLine("\n--- 步骤 4: 创建单个螺栓孔 ---");
 

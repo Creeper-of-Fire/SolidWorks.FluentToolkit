@@ -2,11 +2,10 @@
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using SolidWorks.Utils;
-using Xarial.XCad.SolidWorks;
 
 namespace SolidWorks.Progress;
 
-public class DrawComplexFlange(ISwApplication app) : AbstractRun(app)
+public class DrawComplexFlange(ISldWorks sldWorks) : AbstractRun(sldWorks)
 {
     public override void Run()
     {
