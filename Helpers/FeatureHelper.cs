@@ -39,6 +39,41 @@ public static class FeatureHelper
         // 步骤 5: 健壮性检查
         return newFeature.AssertNotNull("未能通过'差集法'找到新创建的特征。操作可能未成功创建任何新特征。");
     }
+    
+    /// <summary>
+    /// 创建一个3D草图，并在其中执行绘图动作，然后返回新创建的草图特征。
+    /// 这个方法封装了进入、绘制和退出3D草图并安全捕获其特征的完整流程。
+    /// </summary>
+    /// <param name="model">要进行操作的 ModelDoc2 文档。</param>
+    /// <param name="sketchAction">一个委托，定义了如何在3D草图中绘制几何图形。</param>
+    /// <param name="createdFeature">创建的3D草图特征。</param>
+    /// <returns>返回传入的 IModelDoc2 对象，以支持链式调用。</returns>
+    public static IModelDoc2 Create3DSketchFeature(
+        this IModelDoc2 model,
+        Action<ISketchManager> sketchAction,
+        out Feature createdFeature)
+    {
+        var sketchManager = model.SketchManager;
+
+        // ExecuteAndGetNewFeature 捕捉新创建的草图特征。
+        createdFeature = ExecuteAndGetNewFeature(
+            model.FeatureManager,
+            () =>
+            {
+                // 进入3D草图模式
+                sketchManager.Insert3DSketch(true);
+                // 通过检查 ActiveSketch 是否为 null 来验证是否成功进入
+                sketchManager.ActiveSketch.AssertNotNull("进入3D草图模式失败，ActiveSketch 依然为 null。");
+
+                // 执行用户定义的绘图动作
+                sketchAction(sketchManager);
+                
+                sketchManager.Insert3DSketch(true);
+            } 
+        );
+
+        return model;
+    }
 
     /// <summary>
     /// 一个通用的私有辅助方法，用于在当前选定的平面上进入草图、执行绘图动作、然后退出草图。
@@ -343,6 +378,49 @@ public static class FeatureHelper
                 VertexChamDist3: 0
             )
             .AssertNotNull("创建角度-距离倒角失败！");
+
+        return model;
+    }
+    
+    /// <summary>
+    /// 使用“圆形轮廓”快捷方式创建一个扫描切除特征。
+    /// 这种方法非常高效，因为它不需要单独创建一个轮廓草图。
+    /// </summary>
+    /// <param name="model">要进行操作的 ModelDoc2 文档。</param>
+    /// <param name="pathSketch">定义了扫描路径的草图 (Sketch)。路径必须是开放的。</param>
+    /// <param name="diameter">圆形轮廓的直径。</param>
+    /// <param name="createdFeature">创建的扫描切除特征。</param>
+    /// <returns>返回传入的 IModelDoc2 对象，以支持链式调用。</returns>
+    public static IModelDoc2 CreateSweptCutWithCircularProfile(
+        this IModelDoc2 model,
+        ISketch pathSketch,
+        double diameter,
+        out Feature createdFeature)
+    {
+        var featureManager = model.FeatureManager;
+
+        // 步骤 1: 准备环境并选择路径
+        // 确保在干净的环境下操作，然后通过对象直接选择路径草图
+        model.ClearSelect()
+            .SelectObject(pathSketch, mark: 4); // 核心：Mark = 4 表示这是一个“路径”
+
+        // 步骤 2: 创建并配置扫描切除的“定义”对象
+        var sweepDef = (ISweepFeatureData)featureManager.CreateDefinition((int)swFeatureNameID_e.swFmSweepCut)
+            .AssertNotNull("未能创建扫描切除的定义对象。");
+
+        // 启用“圆形轮廓”快捷方式并设置直径
+        sweepDef.CircularProfile = true;
+        sweepDef.CircularProfileDiameter = diameter;
+
+        // 启用切线延伸，这对于由多条线段组成的路径很有用
+        sweepDef.TangentPropagation = true;
+
+        // 步骤 3: 根据定义创建特征
+        createdFeature = featureManager.CreateFeature(sweepDef)
+            .AssertNotNull("使用圆形轮廓创建扫描切除失败！");
+
+        // 步骤 4: 收尾
+        model.ClearSelect();
 
         return model;
     }
